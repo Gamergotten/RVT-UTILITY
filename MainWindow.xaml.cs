@@ -29,6 +29,7 @@ namespace RVT_UTILITY
         // TODO: arrange the output lines to check for overlaps 
         // TODO: optimize the line counter, it seems to be very laggy and in some instances seems to set too many lines
         // TODO: auto write optimizations
+        // TODO: functions optimize into themselves what lol, plus sometimes we get overlaps, 
 
         // TODO: autocomplete
         // TODO: trigger/condition/action counter
@@ -37,11 +38,18 @@ namespace RVT_UTILITY
         // TODO: autosaving
         // TODO: RVT hook
 
-        
+        public int block_value = 2;
+        public int action_value = 1;
+
+        Random rand = new();
+
         public Dictionary<KeyValuePair<int, int>, List<int>> dupilicate_code_list = new();
         private void Button_Click(object sender, RoutedEventArgs e)
         {   // DO THE THING
+            string pattern = rand.Next(int.MaxValue).ToString("X");
+
             dupilicate_code_list.Clear();
+
             string[] code = textcontext.Text.Split(Environment.NewLine);
             for (int i = 0; i < code.Length; i++) // fixup the lines to all be nice and flat 
             {
@@ -120,6 +128,8 @@ namespace RVT_UTILITY
                                         }
                                         if (relative_block_depth < 0)
                                             break;
+                                        if (i < b && i+search_length > b || b < i && b + search_length > i) // then either track is now overlapping
+                                            break;
                                         if (relative_block_depth == 0) // then theres a net balance and we're correctly checking the ends
                                         {
                                             true_match = true;
@@ -135,9 +145,20 @@ namespace RVT_UTILITY
                                         is_matching = false;
                                     }
                                 }
+                                search_length--;
                                 if (true_match)
                                 {
-                                    search_length--; // subtract it back one
+
+                                    // hopefully destroy any matches that are from 2 lines but the second line is just blank
+                                    int sus_amogus = code_value(poo_join(code.Skip(i).Take(search_length).ToArray()));
+                                    if (sus_amogus < 2)
+                                    {
+                                        true_match = false;
+                                    }
+                                }
+                                if (true_match)
+                                {
+                                     // subtract it back one
                                     //string location_text = "matching code found at lines: " + (i+1) + "-" + (i+search_length) + " and " + (b+1) + "-" + (b+search_length) + " (match length:" + search_length + ")" + Environment.NewLine;
 
                                     //Button console_log = new Button();
@@ -160,21 +181,18 @@ namespace RVT_UTILITY
                             }
                         }
                     }
-
                 }
-
-
-
-
             }
             // post optimization cleanups
             // if only has a single 2 liner match, then take it off the list
             for (int i=0; i < dupilicate_code_list.Count; i++)
             {
                 var venis = dupilicate_code_list.ElementAt(i);
+
                 if (venis.Value.Count == 1)
                 {
-                    if (venis.Key.Value == 2)
+                    int test_test = code_value(poo_join(code.Skip(venis.Key.Key).Take(venis.Key.Value).ToArray()));
+                    if (test_test <= 2)
                     {
                         dupilicate_code_list.Remove(venis.Key);
                         i--;
@@ -195,15 +213,36 @@ namespace RVT_UTILITY
                     {   // then they share the same start index
                         // test for collisions with any function, and determine whether  
                         int collisions = 0;
-                        if (ienis.Key.Key <= benis.Key.Key && (ienis.Key.Key + ienis.Key.Value) >= (benis.Key.Key + benis.Key.Value))
+                        //if (ienis.Key.Key <= benis.Key.Key && (ienis.Key.Key + ienis.Key.Value) >= (benis.Key.Key + benis.Key.Value))
+                        //{
+                        //    collisions++;
+                        //}
+                        if (ienis.Key.Key >= benis.Key.Key && ienis.Key.Key <= (benis.Key.Key + benis.Key.Value) || (ienis.Key.Key + ienis.Key.Value) >= benis.Key.Key && (ienis.Key.Key + ienis.Key.Value) <= (benis.Key.Key + benis.Key.Value))
                         {
                             collisions++;
                         }
+                        foreach (var otherthing in benis.Value)
+                        {   // crosscheck inside lines with initial lines
+                            if (ienis.Key.Key >= otherthing && ienis.Key.Key <= (otherthing + benis.Key.Value) || (ienis.Key.Key + ienis.Key.Value) >= otherthing && (ienis.Key.Key + ienis.Key.Value) <= (otherthing + benis.Key.Value))
+                            {
+                                collisions++;
+                            }
+                        }
                         foreach (var something in ienis.Value)
                         {
+                            if (something >= benis.Key.Key && something <= (benis.Key.Key + benis.Key.Value) || (something + ienis.Key.Value) >= benis.Key.Key && (something + ienis.Key.Value) <= (benis.Key.Key + benis.Key.Value))
+                            {   // croos check inside lines with initial lines
+                                collisions++;
+                            }
                             foreach (var otherthing in benis.Value)
                             {
-                                if (something <= otherthing && (something + ienis.Key.Value) >= (otherthing + benis.Key.Value))
+                                // if line1 <= line2 AND line1.end >= line2.end
+
+                                //if (something <= otherthing && (something + ienis.Key.Value) >= (otherthing + benis.Key.Value))
+                                //{
+                                //    collisions++;
+                                //}
+                                if (something >= otherthing && something <= (otherthing + benis.Key.Value) || (something + ienis.Key.Value) >= otherthing && (something + ienis.Key.Value) <= (otherthing + benis.Key.Value))
                                 {
                                     collisions++;
                                 }
@@ -213,9 +252,9 @@ namespace RVT_UTILITY
 
                         if (collisions > 0)
                         {
-                            int i_optimized_weight = (ienis.Key.Value * ienis.Value.Count) - ienis.Value.Count;
+                            int i_optimized_weight = (code_value(poo_join(code.Skip(ienis.Key.Key).Take(ienis.Key.Value).ToArray())) * ienis.Value.Count) - ienis.Value.Count;
 
-                            int b_optimized_weight = (benis.Key.Value * benis.Value.Count) - benis.Value.Count;
+                            int b_optimized_weight = (code_value(poo_join(code.Skip(benis.Key.Key).Take(benis.Key.Value).ToArray())) * benis.Value.Count) - benis.Value.Count;
 
                             if (i_optimized_weight > b_optimized_weight)
                             {   // then our optimization that we're comparing (i) IS more efficient than the one we're currently looking at (b)
@@ -243,7 +282,7 @@ namespace RVT_UTILITY
             for (int i = 0; i < dupilicate_code_list.Count; i++)
             {
                 var ienis = dupilicate_code_list.ElementAt(i);
-                string poopy = "Autogenerated_F_" + ienis.Key.Key + "()";
+                string poopy = "Auto"+ pattern + "_" + ienis.Key.Key + "()";
                 extracted_funcs.Add(convert_info_to_funct("function "+poopy, code.Skip(ienis.Key.Key).Take(ienis.Key.Value).ToArray()));
                 // now we fixup this line to match our optimized function
                 for (int p = ienis.Key.Key; p < ienis.Key.Key + ienis.Key.Value; p++)
@@ -290,6 +329,49 @@ namespace RVT_UTILITY
             }
 
             textcontext.Text = sausage;
+        }
+        public int code_value(string lines)
+        {
+            int output = 0;
+            string[] code = lines.Split(Environment.NewLine);
+            // cant be bothered functioning this
+            for (int i = 0; i < code.Length; i++) // fixup the lines to all be nice and flat 
+            {
+                // while we're at it, remove the comments if there are any
+                string code_line = code[i];
+                int consectutive_dash = 0;
+                for (int c_index = 0; c_index < code_line.Length; c_index++)
+                {
+                    char c = code_line[c_index];
+                    if (c == '-')
+                    {
+                        consectutive_dash++;
+                        if (consectutive_dash >= 2)
+                        {
+                            var v = code_line.Substring(0, c_index - 1);
+                            code_line = v;
+                        }
+                    }
+                    else
+                    {
+                        consectutive_dash = 0;
+                    }
+                }
+                code[i] = code_line.Trim();
+            }
+            foreach (var v in code)
+            {
+                var i_type = get_line_type(v);
+                if (i_type == line_type.action) // is valid to attempt to optimize
+                {
+                    output += action_value;
+                }
+                else if (i_type == line_type.block)
+                {
+                    output += block_value;
+                }
+            }
+            return output;
         }
         public int count_pre_spaces(string s)
         {
